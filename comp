@@ -1,0 +1,200 @@
+-- [[ MIRROR HUB V7 - MODDED ]] --
+-- Toggle UI/Visuals: Q | Toggle Script Logic: Left Control
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- // UI PROTECTION
+local ProtectUI = gethui or function() return LocalPlayer:WaitForChild("PlayerGui") end
+local ScreenGui = Instance.new("ScreenGui", ProtectUI())
+ScreenGui.Name = "MirrorSlider_V7_Modded"
+
+local Settings = {
+    Aura = { 
+        Enabled = true,
+        Range = 5, 
+        CenterX = 832, 
+        CenterY = 502, 
+        Radius = 120, 
+        IsClicking = false,
+        LastHit = 0,
+        HPS = 6
+    },
+    Speed = { Enabled = false, Value = 16 }
+}
+
+-- // REMOTE LOCATOR
+local HitRemote
+pcall(function()
+    HitRemote = game:GetService("ReplicatedStorage"):WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("CombatService"):WaitForChild("RF"):WaitForChild("Hit")
+end)
+
+-- // TARGETING LOGIC
+local function GetTargetInCircle()
+    local closestChar, shortestDist = nil, Settings.Aura.Radius
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(Settings.Aura.CenterX, Settings.Aura.CenterY)).Magnitude
+                    if dist < shortestDist then 
+                        shortestDist = dist 
+                        closestChar = p.Character 
+                    end
+                end
+            end
+        end
+    end
+    return closestChar
+end
+
+-- // VISUAL CIRCLE
+local TargetCircle = Instance.new("Frame", ScreenGui)
+TargetCircle.Size = UDim2.fromOffset(Settings.Aura.Radius * 2, Settings.Aura.Radius * 2)
+TargetCircle.Position = UDim2.fromOffset(Settings.Aura.CenterX - Settings.Aura.Radius, Settings.Aura.CenterY - Settings.Aura.Radius)
+TargetCircle.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+TargetCircle.BackgroundTransparency = 0.95
+TargetCircle.BorderSizePixel = 0
+Instance.new("UICorner", TargetCircle).CornerRadius = UDim.new(1, 0)
+
+-- // UI SETUP
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 220, 0, 200)
+Main.Position = UDim2.new(0, 50, 0.5, -100)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Main.Draggable = true Main.Active = true
+Instance.new("UICorner", Main)
+
+-- STATUS LIGHT
+local StatusLight = Instance.new("Frame", Main)
+StatusLight.Size = UDim2.new(0, 10, 0, 10)
+StatusLight.Position = UDim2.new(0, 10, 0, 15)
+StatusLight.BackgroundColor3 = Color3.fromRGB(0, 255, 150) -- Default ON
+Instance.new("UICorner", StatusLight).CornerRadius = UDim.new(1, 0)
+
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "MIRROR V7"
+Title.TextColor3 = Color3.new(1,1,1)
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
+
+-- Speed Toggle Button
+local SpeedBtn = Instance.new("TextButton", Main)
+SpeedBtn.Size = UDim2.new(0.9, 0, 0, 35)
+SpeedBtn.Position = UDim2.new(0.05, 0, 0, 45)
+SpeedBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+SpeedBtn.Text = "SPEED (OFF)"
+SpeedBtn.TextColor3 = Color3.new(1,1,1)
+SpeedBtn.Font = Enum.Font.GothamBold
+Instance.new("UICorner", SpeedBtn)
+SpeedBtn.MouseButton1Click:Connect(function()
+    Settings.Speed.Enabled = not Settings.Speed.Enabled
+    SpeedBtn.BackgroundColor3 = Settings.Speed.Enabled and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(30, 30, 35)
+    SpeedBtn.Text = Settings.Speed.Enabled and "SPEED (ON)" or "SPEED (OFF)"
+end)
+
+-- HPS Slider Section
+local SliderLabel = Instance.new("TextLabel", Main)
+SliderLabel.Size = UDim2.new(1, 0, 0, 30)
+SliderLabel.Position = UDim2.new(0, 0, 0, 90)
+SliderLabel.Text = "HITS PER SECOND: " .. Settings.Aura.HPS
+SliderLabel.TextColor3 = Color3.new(1,1,1)
+SliderLabel.BackgroundTransparency = 1
+
+local SliderBack = Instance.new("Frame", Main)
+SliderBack.Size = UDim2.new(0.8, 0, 0, 10)
+SliderBack.Position = UDim2.new(0.1, 0, 0, 125)
+SliderBack.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+Instance.new("UICorner", SliderBack)
+
+local SliderBar = Instance.new("Frame", SliderBack)
+SliderBar.Size = UDim2.new(Settings.Aura.HPS / 20, 0, 1, 0)
+SliderBar.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
+Instance.new("UICorner", SliderBar)
+
+local SliderBtn = Instance.new("TextButton", SliderBack)
+SliderBtn.Size = UDim2.new(0, 20, 0, 20)
+SliderBtn.Position = UDim2.new(Settings.Aura.HPS / 20, -10, 0.5, -10)
+SliderBtn.Text = ""
+SliderBtn.BackgroundColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", SliderBtn)
+
+-- Slider Logic
+local dragging = false
+SliderBtn.MouseButton1Down:Connect(function() dragging = true end)
+UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+
+RunService.RenderStepped:Connect(function()
+    if dragging then
+        local mousePos = UserInputService:GetMouseLocation().X
+        local relativePos = (mousePos - SliderBack.AbsolutePosition.X) / SliderBack.AbsoluteSize.X
+        local percent = math.clamp(relativePos, 0, 1)
+        
+        Settings.Aura.HPS = math.floor(percent * 19) + 1
+        SliderBar.Size = UDim2.new(percent, 0, 1, 0)
+        SliderBtn.Position = UDim2.new(percent, -10, 0.5, -10)
+        SliderLabel.Text = "HITS PER SECOND: " .. Settings.Aura.HPS
+    end
+end)
+
+-- // MAIN ENGINE
+RunService.Heartbeat:Connect(function()
+    if not Settings.Aura.Enabled then return end 
+
+    if Settings.Speed.Enabled and LocalPlayer.Character then
+        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = Settings.Speed.Value end
+    end
+
+    if Settings.Aura.IsClicking then
+        local currentTime = tick()
+        if currentTime - Settings.Aura.LastHit >= (1 / Settings.Aura.HPS) then
+            local target = GetTargetInCircle()
+            if target and LocalPlayer.Character then
+                local hum = target:FindFirstChildOfClass("Humanoid")
+                local hrp = target:FindFirstChild("HumanoidRootPart")
+                local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                
+                if hum and hrp and myHRP and (hrp.Position - myHRP.Position).Magnitude <= Settings.Aura.Range then
+                    Settings.Aura.LastHit = currentTime
+                    pcall(function() HitRemote:InvokeServer(hum, hrp.Position) end)
+                end
+            end
+        end
+    end
+end)
+
+-- // CONTROLS
+UserInputService.InputBegan:Connect(function(i, p)
+    if p then return end
+    
+    -- Toggle Script Logic with Left Control
+    if i.KeyCode == Enum.KeyCode.LeftControl then
+        Settings.Aura.Enabled = not Settings.Aura.Enabled
+        StatusLight.BackgroundColor3 = Settings.Aura.Enabled and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(255, 50, 50)
+        TargetCircle.Visible = Settings.Aura.Enabled
+        
+    -- Toggle UI Visibility with Q
+    elseif i.KeyCode == Enum.KeyCode.Q then
+        ScreenGui.Enabled = not ScreenGui.Enabled
+        
+    -- Start Clicking
+    elseif i.UserInputType == Enum.UserInputType.MouseButton1 then
+        Settings.Aura.IsClicking = true
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then 
+        Settings.Aura.IsClicking = false 
+    end
+end)
+
+print("Mirror Hub V7: Toggle switched to Left Control. Status Light added.")
