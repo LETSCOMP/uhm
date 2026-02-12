@@ -1,5 +1,5 @@
--- [[ MIRROR HUB V7 - MOBILE EDITION (FIXED POS) ]] --
--- Toggle UI: "UI" Button | Toggle Script: "AURA" Button
+-- [[ MIRROR HUB V7 - MOBILE FLOODER (FIXED CIRCLE) ]] --
+-- Logic: 3-hit Burst per tap | 50 HPS Max | Buttons Draggable | Circle Fixed
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -10,18 +10,19 @@ local Camera = workspace.CurrentCamera
 -- // UI PROTECTION
 local ProtectUI = gethui or function() return LocalPlayer:WaitForChild("PlayerGui") end
 local ScreenGui = Instance.new("ScreenGui", ProtectUI())
-ScreenGui.Name = "MirrorMobile_V7_Fixed"
+ScreenGui.Name = "MirrorMobile_V7_Final"
 
 local Settings = {
     Aura = { 
         Enabled = true, 
         Range = 5, 
-        CenterX = 832, -- Back to original X
-        CenterY = 502, -- Back to original Y
+        CenterX = 832, 
+        CenterY = 502, 
         Radius = 120, 
         IsClicking = false,
         LastHit = 0,
-        HPS = 6
+        HPS = 20,
+        BurstPower = 3
     },
     Speed = { Enabled = false, Value = 16 }
 }
@@ -35,7 +36,9 @@ end)
 -- // TARGETING LOGIC
 local function GetTargetInCircle()
     local closestChar, shortestDist = nil, Settings.Aura.Radius
-    for _, p in pairs(Players:GetPlayers()) do
+    local players = Players:GetPlayers()
+    for i = 1, #players do
+        local p = players[i]
         if p ~= LocalPlayer and p.Character then
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
             local hum = p.Character:FindFirstChildOfClass("Humanoid")
@@ -54,7 +57,7 @@ local function GetTargetInCircle()
     return closestChar
 end
 
--- // VISUAL CIRCLE (Back to Original Fixed Position)
+-- // VISUAL CIRCLE (STATIONARY)
 local TargetCircle = Instance.new("Frame", ScreenGui)
 TargetCircle.Size = UDim2.fromOffset(Settings.Aura.Radius * 2, Settings.Aura.Radius * 2)
 TargetCircle.Position = UDim2.fromOffset(Settings.Aura.CenterX - Settings.Aura.Radius, Settings.Aura.CenterY - Settings.Aura.Radius)
@@ -63,7 +66,7 @@ TargetCircle.BackgroundTransparency = 0.95
 TargetCircle.BorderSizePixel = 0
 Instance.new("UICorner", TargetCircle).CornerRadius = UDim.new(1, 0)
 
--- // MOBILE TOGGLE BUTTONS
+-- // MOBILE TOGGLE BUTTONS (DRAGGABLE)
 local function CreateToggleButton(name, pos, color, text)
     local btn = Instance.new("TextButton", ScreenGui)
     btn.Name = name
@@ -82,7 +85,7 @@ end
 local ToggleUIBtn = CreateToggleButton("UIToggle", UDim2.new(0.1, 0, 0.2, 0), Color3.fromRGB(50, 50, 50), "UI")
 local ToggleAuraBtn = CreateToggleButton("AuraToggle", UDim2.new(0.1, 0, 0.35, 0), Color3.fromRGB(0, 255, 150), "AURA")
 
--- // MAIN ENGINE
+-- // FLOODER ENGINE
 RunService.Heartbeat:Connect(function()
     if not Settings.Aura.Enabled then return end
 
@@ -93,26 +96,28 @@ RunService.Heartbeat:Connect(function()
 
     if Settings.Aura.IsClicking then
         local currentTime = tick()
-        if currentTime - Settings.Aura.LastHit >= (1 / Settings.Aura.HPS) then
+        if currentTime - Settings.Aura.LastHit >= (0.7 / Settings.Aura.HPS) then
             local target = GetTargetInCircle()
             if target and LocalPlayer.Character then
                 local hum = target:FindFirstChildOfClass("Humanoid")
                 local hrp = target:FindFirstChild("HumanoidRootPart")
-                local myHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 
-                if hum and hrp and myHRP and (hrp.Position - myHRP.Position).Magnitude <= Settings.Aura.Range then
-                    Settings.Aura.LastHit = currentTime
-                    pcall(function() HitRemote:InvokeServer(hum, hrp.Position) end)
-                end
+                Settings.Aura.LastHit = currentTime
+                
+                task.spawn(function()
+                    for i = 1, Settings.Aura.BurstPower do
+                        pcall(function() HitRemote:InvokeServer(hum, hrp.Position) end)
+                    end
+                end)
             end
         end
     end
 end)
 
--- // UI SETUP
+-- // UI SETUP (DRAGGABLE MENU)
 local Main = Instance.new("Frame", ScreenGui)
 Main.Size = UDim2.new(0, 220, 0, 200)
-Main.Position = UDim2.new(0.05, 0, 0.5, -100) -- Adjusted for mobile sidebar feel
+Main.Position = UDim2.new(0.05, 0, 0.5, -100)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 Main.Active = true
 Main.Draggable = true
@@ -120,12 +125,11 @@ Instance.new("UICorner", Main)
 
 local Title = Instance.new("TextLabel", Main)
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "MIRROR MOBILE"
+Title.Text = "MOBILE FLOODER v7"
 Title.TextColor3 = Color3.new(1,1,1)
 Title.Font = Enum.Font.GothamBold
 Title.BackgroundTransparency = 1
 
--- Speed Toggle
 local SpeedBtn = Instance.new("TextButton", Main)
 SpeedBtn.Size = UDim2.new(0.9, 0, 0, 35)
 SpeedBtn.Position = UDim2.new(0.05, 0, 0, 45)
@@ -140,7 +144,6 @@ SpeedBtn.MouseButton1Click:Connect(function()
     SpeedBtn.Text = Settings.Speed.Enabled and "SPEED (ON)" or "SPEED (OFF)"
 end)
 
--- Slider
 local SliderLabel = Instance.new("TextLabel", Main)
 SliderLabel.Size = UDim2.new(1, 0, 0, 30)
 SliderLabel.Position = UDim2.new(0, 0, 0, 90)
@@ -155,31 +158,27 @@ SliderBack.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 Instance.new("UICorner", SliderBack)
 
 local SliderBar = Instance.new("Frame", SliderBack)
-SliderBar.Size = UDim2.new(Settings.Aura.HPS / 20, 0, 1, 0)
+SliderBar.Size = UDim2.new(Settings.Aura.HPS / 50, 0, 1, 0)
 SliderBar.BackgroundColor3 = Color3.fromRGB(0, 255, 150)
 Instance.new("UICorner", SliderBar)
 
 local SliderBtn = Instance.new("TextButton", SliderBack)
 SliderBtn.Size = UDim2.new(0, 30, 0, 30)
-SliderBtn.Position = UDim2.new(Settings.Aura.HPS / 20, -15, 0.5, -15)
+SliderBtn.Position = UDim2.new(Settings.Aura.HPS / 50, -15, 0.5, -15)
 SliderBtn.Text = ""
 SliderBtn.BackgroundColor3 = Color3.new(1,1,1)
 Instance.new("UICorner", SliderBtn)
 
 local dragging = false
 SliderBtn.MouseButton1Down:Connect(function() dragging = true end)
-UserInputService.InputEnded:Connect(function(input) 
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
-        dragging = false 
-    end 
-end)
+UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then dragging = false end end)
 
 RunService.RenderStepped:Connect(function()
     if dragging then
         local inputPos = UserInputService:GetMouseLocation().X
         local relativePos = (inputPos - SliderBack.AbsolutePosition.X) / SliderBack.AbsoluteSize.X
         local percent = math.clamp(relativePos, 0, 1)
-        Settings.Aura.HPS = math.floor(percent * 19) + 1
+        Settings.Aura.HPS = math.floor(percent * 49) + 1
         SliderBar.Size = UDim2.new(percent, 0, 1, 0)
         SliderBtn.Position = UDim2.new(percent, -15, 0.5, -15)
         SliderLabel.Text = "HITS PER SECOND: " .. Settings.Aura.HPS
@@ -187,11 +186,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- // BUTTON CONNECTIONS
-ToggleUIBtn.MouseButton1Click:Connect(function()
-    Main.Visible = not Main.Visible
-    TargetCircle.Visible = Main.Visible
-end)
-
+ToggleUIBtn.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible TargetCircle.Visible = Main.Visible end)
 ToggleAuraBtn.MouseButton1Click:Connect(function()
     Settings.Aura.Enabled = not Settings.Aura.Enabled
     ToggleAuraBtn.BackgroundColor3 = Settings.Aura.Enabled and Color3.fromRGB(0, 255, 150) or Color3.fromRGB(200, 50, 50)
