@@ -1,0 +1,191 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+local Settings = {
+    Enabled = false,
+    RangeSq = 324, 
+    HitsPerFrame = 5, 
+    Targets = {}
+}
+
+local HitRemote = nil
+task.spawn(function()
+    local RS = game:GetService("ReplicatedStorage")
+    while not HitRemote do
+        pcall(function() HitRemote = RS.Packages.Knit.Services.CombatService.RF.Hit end)
+        task.wait(1)
+    end
+end)
+
+-- ==================== UI CONSTRUCTION ====================
+local ScreenGui = Instance.new("ScreenGui", LocalPlayer.PlayerGui)
+ScreenGui.Name = "KRISPhub_V9"
+ScreenGui.ResetOnSpawn = false
+
+-- DRAGGABLE LOGO
+local ToggleButton = Instance.new("TextButton", ScreenGui)
+ToggleButton.Size = UDim2.new(0, 100, 0, 40); ToggleButton.Position = UDim2.new(0, 20, 0.15, 0)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(20, 20, 25); ToggleButton.Text = "KRISPhub"
+ToggleButton.TextColor3 = Color3.new(1, 1, 1); ToggleButton.Font = "GothamBold"
+Instance.new("UICorner", ToggleButton)
+Instance.new("UIStroke", ToggleButton).Color = Color3.new(0.4, 0.4, 1)
+
+-- MAIN MENU
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 340, 0, 240)
+Main.Position = UDim2.new(0.5, -170, 0.5, -120)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15); Main.Visible = false
+Instance.new("UICorner", Main)
+
+local EnableBtn = Instance.new("TextButton", Main)
+EnableBtn.Size = UDim2.new(0, 130, 0, 45); EnableBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+EnableBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40); EnableBtn.Text = "ENABLE"
+EnableBtn.TextColor3 = Color3.new(1, 0.3, 0.3); EnableBtn.Font = "GothamBold"
+Instance.new("UICorner", EnableBtn)
+
+-- SPEED SLIDER (1 - 60)
+local SliderFrame = Instance.new("Frame", Main)
+SliderFrame.Size = UDim2.new(0.4, 0, 0, 40); SliderFrame.Position = UDim2.new(0.05, 0, 0.45, 0)
+SliderFrame.BackgroundTransparency = 1
+
+local SliderLabel = Instance.new("TextLabel", SliderFrame)
+SliderLabel.Size = UDim2.new(1, 0, 0, 20); SliderLabel.Text = "SPEED: 5"
+SliderLabel.TextColor3 = Color3.new(1, 1, 1); SliderLabel.Font = "GothamBold"; SliderLabel.BackgroundTransparency = 1; SliderLabel.TextSize = 14
+
+local SliderBar = Instance.new("Frame", SliderFrame)
+SliderBar.Size = UDim2.new(1, 0, 0, 6); SliderBar.Position = UDim2.new(0, 0, 0.75, 0)
+SliderBar.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+Instance.new("UICorner", SliderBar)
+
+local SliderDot = Instance.new("Frame", SliderBar)
+SliderDot.Size = UDim2.new(0, 18, 0, 18); SliderDot.Position = UDim2.new(0.08, -9, 0.5, -9) 
+SliderDot.BackgroundColor3 = Color3.new(0.4, 0.4, 1)
+Instance.new("UICorner", SliderDot)
+
+-- PING DISPLAY
+local PingLabel = Instance.new("TextLabel", Main)
+PingLabel.Size = UDim2.new(0.4, 0, 0, 20); PingLabel.Position = UDim2.new(0.05, 0, 0.85, 0)
+PingLabel.BackgroundTransparency = 1; PingLabel.Text = "Ping: --"; PingLabel.TextColor3 = Color3.new(0.6, 0.6, 0.6)
+PingLabel.Font = "Gotham"; PingLabel.TextSize = 12
+
+-- PLAYER LIST
+local Scroll = Instance.new("ScrollingFrame", Main)
+Scroll.Size = UDim2.new(0.48, 0, 0.85, 0); Scroll.Position = UDim2.new(0.48, 0, 0.07, 0)
+Scroll.BackgroundTransparency = 1; Scroll.ScrollBarThickness = 2
+local ListLayout = Instance.new("UIListLayout", Scroll); ListLayout.Padding = UDim.new(0, 4)
+
+-- ==================== LOGIC ====================
+
+-- Slider Update Logic (1-60)
+local function UpdateSlider(input)
+    local relativeX = math.clamp((input.Position.X - SliderBar.AbsolutePosition.X) / SliderBar.AbsoluteSize.X, 0, 1)
+    SliderDot.Position = UDim2.new(relativeX, -9, 0.5, -9)
+    
+    local speedValue = math.floor(1 + (relativeX * 59)) -- Range 1 to 60
+    Settings.HitsPerFrame = speedValue
+    SliderLabel.Text = "SPEED: " .. speedValue
+    
+    -- Color change for Warning
+    if speedValue > 40 then
+        SliderLabel.TextColor3 = Color3.new(1, 0, 0) -- Red (Crash Risk)
+    elseif speedValue > 20 then
+        SliderLabel.TextColor3 = Color3.new(1, 0.6, 0) -- Orange (High Lag)
+    else
+        SliderLabel.TextColor3 = Color3.new(1, 1, 1) -- White (Safe)
+    end
+end
+
+SliderBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        UpdateSlider(input)
+        local moveConn = UIS.InputChanged:Connect(function(move)
+            if move.UserInputType == Enum.UserInputType.MouseMovement or move.UserInputType == Enum.UserInputType.Touch then
+                UpdateSlider(move)
+            end
+        end)
+        UIS.InputEnded:Connect(function(ended)
+            if ended.UserInputType == Enum.UserInputType.MouseButton1 or ended.UserInputType == Enum.UserInputType.Touch then
+                moveConn:Disconnect()
+            end
+        end)
+    end
+end)
+
+-- UI Interactions
+local function Drag(obj)
+    local dragging, startPos, dragStart
+    obj.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; dragStart = i.Position; startPos = obj.Position end end)
+    UIS.InputChanged:Connect(function(i) if dragging and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then 
+        local delta = i.Position - dragStart; obj.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y) 
+    end end)
+    UIS.InputEnded:Connect(function() dragging = false end)
+end
+Drag(Main); Drag(ToggleButton)
+
+local function UpdateList()
+    for _, v in pairs(Scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local b = Instance.new("TextButton", Scroll)
+            b.Size = UDim2.new(0.95, 0, 0, 30); local k = p.Name:lower()
+            b.BackgroundColor3 = Settings.Targets[k] and Color3.new(0, 0.4, 0.8) or Color3.fromRGB(25, 25, 30)
+            b.Text = p.DisplayName; b.TextColor3 = Color3.new(1, 1, 1); b.Font = "Gotham"
+            Instance.new("UICorner", b)
+            b.MouseButton1Click:Connect(function() Settings.Targets[k] = not Settings.Targets[k]; UpdateList() end)
+        end
+    end
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, ListLayout.AbsoluteContentSize.Y + 10)
+end
+
+ToggleButton.MouseButton1Click:Connect(function() Main.Visible = not Main.Visible end)
+EnableBtn.MouseButton1Click:Connect(function()
+    Settings.Enabled = not Settings.Enabled
+    EnableBtn.Text = Settings.Enabled and "ACTIVE" or "ENABLE"
+    EnableBtn.TextColor3 = Settings.Enabled and Color3.new(0.3, 1, 0.3) or Color3.new(1, 0.3, 0.3)
+    EnableBtn.BackgroundColor3 = Settings.Enabled and Color3.fromRGB(30, 50, 30) or Color3.fromRGB(30, 30, 40)
+end)
+
+-- OVERCLOCKED ENGINE
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+        if Settings.Enabled and HitRemote then
+            local myChar = LocalPlayer.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                local myPos = myHRP.Position
+                local hasSelected = false
+                for _, val in pairs(Settings.Targets) do if val == true then hasSelected = true break end end
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer and p.Character then
+                        local k = p.Name:lower()
+                        if not hasSelected or Settings.Targets[k] then
+                            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                            if hrp and hum and hum.Health > 0 then
+                                local diff = hrp.Position - myPos
+                                if (diff.X*diff.X + diff.Y*diff.Y + diff.Z*diff.Z) <= Settings.RangeSq then
+                                    coroutine.wrap(function()
+                                        for i = 1, Settings.HitsPerFrame do
+                                            pcall(function() HitRemote:InvokeServer(hum, myPos) end)
+                                        end
+                                    end)()
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        pcall(function() PingLabel.Text = "Ping: " .. math.floor(LocalPlayer:GetNetworkPing() * 1000) .. "ms" end)
+    end
+end)
+
+UpdateList(); Players.PlayerAdded:Connect(UpdateList); Players.PlayerRemoving:Connect(UpdateList)
